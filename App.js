@@ -33,6 +33,7 @@ export default function App() {
   const [showMenu, setShowMenu] = useState(false);
   const [theme, setTheme] = useState(mainTheme);
   const [isThemeLoaded, setIsThemeLoaded] = useState(false);
+  const [sessionComplete, setSessionComplete] = useState(false); // NEW STATE for post-session summary
   const intervalRef = useRef(null);
   const countdownTimersRef = useRef([]);
   const currentIntervalIndex = useRef(0);
@@ -162,12 +163,17 @@ export default function App() {
       timeRemaining -= runSeconds + walkSeconds;
     }
 
-    if (timeRemaining >= runSeconds) {
+    // New logic for remaining time:
+    if (timeRemaining >= runSeconds + walkSeconds) {
+      // already handled by while loop
+    } else if (timeRemaining >= runSeconds) {
       intervals.push({ type: "Run", duration: runSeconds });
       timeRemaining -= runSeconds;
-    }
-    if (timeRemaining > 0) {
-      intervals.push({ type: "Walk", duration: timeRemaining });
+      if (timeRemaining > 0) {
+        intervals.push({ type: "Walk", duration: timeRemaining });
+      }
+    } else if (timeRemaining > 0) {
+      intervals.push({ type: "Run", duration: timeRemaining });
     }
 
     return intervals;
@@ -225,8 +231,15 @@ export default function App() {
     const runInterval = () => {
       if (currentIntervalIndex.current >= intervals.length) {
         clearInterval(intervalRef.current);
-        setCurrentInterval({ type: "Done", duration: 0 });
+        intervalRef.current = null;
+        stopSilentAudio();
         setIsRunning(false);
+        setIsPaused(false);
+        setIsPrepping(false);
+        setSecondsLeft(0);
+        setCurrentInterval({ type: "Done", duration: 0 });
+        setSessionComplete(true);
+        currentIntervalIndex.current = 0;
         return;
       }
 
@@ -247,7 +260,7 @@ export default function App() {
     runInterval();
 
     intervalRef.current = setInterval(() => {
-      if (isPausedRef.current) return;
+      if (isPausedRef.current || sessionComplete) return;
 
       setSecondsLeft((prev) => {
         const newTime = prev - 1;
@@ -281,7 +294,19 @@ export default function App() {
   };
 
   const resetTimer = () => {
+    // Always clear interval and stop silent audio immediately
     clearInterval(intervalRef.current);
+    intervalRef.current = null;
+    stopSilentAudio();
+    // If timer is stopped mid-session (not at the end), show summary screen instead of resetting everything
+    if (elapsedTime > 0 && !sessionComplete) {
+      setIsRunning(false);
+      setIsPaused(false);
+      setIsPrepping(false);
+      setCurrentInterval(null);
+      setSessionComplete(true);
+      return;
+    }
     countdownTimersRef.current.forEach(clearTimeout);
     // Ensure any playing sound is unloaded
     (() => {
@@ -291,7 +316,6 @@ export default function App() {
         });
       }
     })();
-    stopSilentAudio();
     setIsRunning(false);
     setIsPaused(false);
     setIsPrepping(false);
@@ -299,11 +323,94 @@ export default function App() {
     setElapsedTime(0);
     setRunElapsedTime(0);
     setCurrentInterval(null);
+    setSessionComplete(false); // Reset session summary state
     currentIntervalIndex.current = 0;
   };
 
   if (!isThemeLoaded || !fontsLoaded) {
     return null;
+  }
+
+  // Post-session summary screen
+  if (sessionComplete) {
+    const walkElapsedTime = elapsedTime - runElapsedTime;
+    return (
+      <View style={[styles.container, { backgroundColor: theme.mainBG, justifyContent: 'center' }]}>
+        <Text
+          style={[
+            styles.phaseText,
+            {
+              fontFamily: theme.text,
+              color: theme.textColor,
+              textAlign: "center",
+              marginBottom: 20,
+              fontSize: 64,
+              letterSpacing: 2,
+            },
+          ]}
+        >
+          Session Complete
+        </Text>
+        <View
+          style={{
+            backgroundColor: theme.inputContainerBG,
+            padding: 30,
+            borderRadius: 20,
+            marginVertical: 10,
+            width: "90%",
+            alignSelf: "center",
+            shadowColor: "#000",
+            shadowOpacity: 0.15,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 5 },
+            elevation: 6,
+            gap: 20,
+          }}
+        >
+          <Text style={[styles.timeText, {
+            fontFamily: theme.text,
+            color: theme.labelText,
+            textAlign: "center",
+            fontSize: 48,
+          }]}>
+            Total Time {'\n'+Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}
+          </Text>
+          <Text style={[styles.timeText, {
+            fontFamily: theme.text,
+            color: theme.labelText,
+            textAlign: "center",
+            fontSize: 48,
+          }]}>
+            Run Time {'\n'+Math.floor(runElapsedTime / 60)}:{(runElapsedTime % 60).toString().padStart(2, '0')}
+          </Text>
+          <Text style={[styles.timeText, {
+            fontFamily: theme.text,
+            color: theme.labelText,
+            textAlign: "center",
+            fontSize: 48,
+          }]}>
+            Walk Time {'\n'+Math.floor(walkElapsedTime / 60)}:{(walkElapsedTime % 60).toString().padStart(2, '0')}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[
+            styles.startButton,
+            {
+              backgroundColor: theme.stopButtonBG,
+              shadowColor: theme.buttonShadowColor,
+              shadowOpacity: theme.buttonShadowOpacity,
+              shadowRadius: theme.buttonShadowRadius,
+              shadowOffset: theme.buttonShadowOffset,
+              elevation: theme.buttonElevation,
+              marginTop: 60,
+            },
+          ]}
+          onPress={resetTimer}
+        >
+          <Text style={{ fontSize: 36, fontFamily: theme.text, color: theme.iconStop }}>Done</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   return (
