@@ -17,6 +17,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import * as Font from "expo-font";
 import { mainTheme, blackTheme, whiteTheme } from "./utils/themes";
+import { StatusBar } from 'react-native';
 
 export default function App() {
   const [totalTime, setTotalTime] = useState(""); // minutes
@@ -331,11 +332,26 @@ export default function App() {
     return null;
   }
 
+  // Insert StatusBar at the top of the return block
+  // Set dark-content for white/high visibility, light-content for dark/maroon
+  // Relies on theme.name and theme.mainBG
+  const statusBar =
+    <StatusBar
+      barStyle={
+        theme.statusBar === "dark"
+          ? "dark-content"
+          : "light-content"
+      }
+      backgroundColor={theme.mainBG}
+    />;
+
   // Post-session summary screen
   if (sessionComplete) {
     const walkElapsedTime = elapsedTime - runElapsedTime;
     return (
-      <View style={[styles.container, { backgroundColor: theme.mainBG, justifyContent: 'center' }]}>
+      <>
+        {statusBar}
+        <View style={[styles.container, { backgroundColor: theme.mainBG, justifyContent: 'center' }]}>
         <Text
           style={[
             styles.phaseText,
@@ -410,24 +426,27 @@ export default function App() {
           <Text style={{ fontSize: 36, fontFamily: theme.text, color: theme.iconStop }}>Done</Text>
         </TouchableOpacity>
       </View>
+      </>
     );
   }
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          paddingTop: !isRunning && !isPrepping ? 80 : 0,
-          backgroundColor:
-            isPaused || !isRunning
-              ? theme.mainBG
-              : currentInterval?.type === "Run"
-              ? theme.runBG
-              : theme.walkBG,
-        },
-      ]}
-    >
+    <>
+      {statusBar}
+      <View
+        style={[
+          styles.container,
+          {
+            paddingTop: !isRunning && !isPrepping ? 80 : 0,
+            backgroundColor:
+              isPaused || !isRunning
+                ? theme.mainBG
+                : currentInterval?.type === "Run"
+                ? theme.runBG
+                : theme.walkBG,
+          },
+        ]}
+      >
       {!isRunning && !isPrepping && (
         <>
           <TouchableOpacity
@@ -701,7 +720,8 @@ export default function App() {
           </Text>
         </View>
       )}
-    </View>
+      </View>
+    </>
   );
 }
 

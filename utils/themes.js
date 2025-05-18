@@ -1,5 +1,6 @@
 export const mainTheme = {
   name: "maroon",
+  statusBar: "dark",
   mainBG: "#ffcccc",
   runBG: "#ccffcc",
   walkBG: "#fff8cc",
@@ -28,6 +29,7 @@ export const mainTheme = {
 
 export const blackTheme = {
   name: "black",
+  statusBar: "light",
   mainBG: "#111111",
   runBG: "#111111",
   walkBG: "#111111",
@@ -56,6 +58,7 @@ export const blackTheme = {
 
 export const whiteTheme = {
   name: "white",
+  statusBar: "dark",
   mainBG: "#ffffff",
   runBG: "#ffffff",
   walkBG: "#ffffff",
