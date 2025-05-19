@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.res.Configuration
 
 import com.facebook.react.PackageList
+import com.smooreii.cardiosplittimer.ForegroundPackage
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactNativeHost
 import com.facebook.react.ReactPackage
@@ -25,6 +26,7 @@ class MainApplication : Application(), ReactApplication {
             val packages = PackageList(this).packages
             // Packages that cannot be autolinked yet can be added manually here, for example:
             // packages.add(MyReactNativePackage())
+            packages.add(ForegroundPackage())
             return packages
           }
 

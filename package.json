@@ -18,10 +18,12 @@
     "expo-sqlite": "~15.2.10",
     "expo-status-bar": "~2.2.3",
     "react": "19.0.0",
-    "react-native": "0.79.2",
+    "react-native": "^0.79.2",
+    "react-native-background-timer": "^2.4.1",
     "react-native-paper": "^5.14.4"
   },
   "devDependencies": {
+    "@react-native-community/cli": "latest",
     "@babel/core": "^7.20.0"
   },
   "private": true

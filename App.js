@@ -19,6 +19,10 @@ import * as Font from "expo-font";
 import { mainTheme, blackTheme, whiteTheme } from "./utils/themes";
 import { StatusBar } from 'react-native';
 
+import { NativeModules } from 'react-native';
+const { ForegroundModule } = NativeModules;
+import BackgroundTimer from 'react-native-background-timer';
+
 export default function App() {
   const [totalTime, setTotalTime] = useState(""); // minutes
   const [runTime, setRunTime] = useState(""); // minutes
@@ -228,12 +232,14 @@ export default function App() {
     );
     currentIntervalIndex.current = 0;
     setIsRunning(true);
+    ForegroundModule.startService();
 
     const runInterval = () => {
       if (currentIntervalIndex.current >= intervals.length) {
-        clearInterval(intervalRef.current);
+        BackgroundTimer.clearInterval(intervalRef.current); // FIXED
         intervalRef.current = null;
         stopSilentAudio();
+        ForegroundModule.stopService();
         setIsRunning(false);
         setIsPaused(false);
         setIsPrepping(false);
@@ -260,7 +266,7 @@ export default function App() {
 
     runInterval();
 
-    intervalRef.current = setInterval(() => {
+    intervalRef.current = BackgroundTimer.setInterval(() => {
       if (isPausedRef.current || sessionComplete) return;
 
       setSecondsLeft((prev) => {
@@ -276,7 +282,6 @@ export default function App() {
           currentIntervalIndex.current++;
           runInterval();
         } else {
-          // Countdown warning
           if (newTime === 3 || newTime === 2 || newTime === 1) {
             const countdownBeep =
               currentIntervalRef.current?.type === "Run" ? beep4 : beep2;
@@ -286,7 +291,6 @@ export default function App() {
 
         return newTime;
       });
-      // INCREMENT elapsedTime always, and runElapsedTime only during "Run"
       setElapsedTime((et) => et + 1);
       if (currentIntervalRef.current?.type === "Run") {
         setRunElapsedTime((rt) => rt + 1);
@@ -296,9 +300,10 @@ export default function App() {
 
   const resetTimer = () => {
     // Always clear interval and stop silent audio immediately
-    clearInterval(intervalRef.current);
+    BackgroundTimer.clearInterval(intervalRef.current);
     intervalRef.current = null;
     stopSilentAudio();
+    ForegroundModule.stopService();
     // If timer is stopped mid-session (not at the end), show summary screen instead of resetting everything
     if (elapsedTime > 0 && !sessionComplete) {
       setIsRunning(false);
@@ -342,7 +347,13 @@ export default function App() {
           ? "dark-content"
           : "light-content"
       }
-      backgroundColor={theme.mainBG}
+      
+      backgroundColor=
+              {isPaused || !isRunning
+                ? theme.mainBG
+                : currentInterval?.type === "Run"
+                ? theme.runBG
+                : theme.walkBG}
     />;
 
   // Post-session summary screen
