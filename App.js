@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Vibration,
   TouchableOpacity,
+  ScrollView,
 } from "react-native";
 import { Audio } from "expo-av";
 import {
@@ -22,6 +23,9 @@ import { StatusBar } from 'react-native';
 import { NativeModules } from 'react-native';
 const { ForegroundModule } = NativeModules;
 import BackgroundTimer from 'react-native-background-timer';
+
+import * as Location from 'expo-location';
+import { getDistance } from 'geolib';
 
 export default function App() {
   const [totalTime, setTotalTime] = useState(""); // minutes
@@ -39,12 +43,17 @@ export default function App() {
   const [theme, setTheme] = useState(mainTheme);
   const [isThemeLoaded, setIsThemeLoaded] = useState(false);
   const [sessionComplete, setSessionComplete] = useState(false); // NEW STATE for post-session summary
+  const [startTime, setStartTime] = useState(null);
+  const [endTime, setEndTime] = useState(null);
   const intervalRef = useRef(null);
   const countdownTimersRef = useRef([]);
   const currentIntervalIndex = useRef(0);
 
   const isPausedRef = useRef(isPaused);
   const currentIntervalRef = useRef(null);
+  const runDistance = useRef(0);
+  const walkDistance = useRef(0);
+  const previousLocation = useRef(null);
   // Load stored settings for theme and timer values
   useEffect(() => {
     const loadStoredValues = async () => {
@@ -210,18 +219,50 @@ export default function App() {
     setShowMenu(false);
   };
 
-  const startMainTimer = () => {
+  const startMainTimer = async () => {
+    // Request location permissions first
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Permission to access location was denied');
+      return;
+    }
+
     const intervals = buildIntervals(
       Number(totalTime),
       Number(runTime),
       Number(walkTime)
     );
     currentIntervalIndex.current = 0;
+    // Save session start time
+    const startTimestamp = new Date();
+    setStartTime(startTimestamp);
     setIsRunning(true);
     ForegroundModule.startService();
 
+    Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.High,
+        timeInterval: 1000,
+        distanceInterval: 1,
+      },
+      (location) => {
+        const { latitude, longitude } = location.coords;
+        if (previousLocation.current) {
+          const delta = getDistance(previousLocation.current, { latitude, longitude });
+          if (currentIntervalRef.current?.type === 'Run') {
+            runDistance.current += delta;
+          } else if (currentIntervalRef.current?.type === 'Walk') {
+            walkDistance.current += delta;
+          }
+        }
+        previousLocation.current = { latitude, longitude };
+      }
+    );
+
     const runInterval = () => {
       if (currentIntervalIndex.current >= intervals.length) {
+        // Save end time when session completes
+        setEndTime(new Date());
         BackgroundTimer.clearInterval(intervalRef.current); // FIXED
         intervalRef.current = null;
         ForegroundModule.stopService();
@@ -238,6 +279,7 @@ export default function App() {
       const { type, duration } = intervals[currentIntervalIndex.current];
       setCurrentInterval({ type, duration });
       currentIntervalRef.current = { type, duration };
+      previousLocation.current = null;
 
       // Trigger vibration immediately for new interval
       if (type === "Run") {
@@ -284,10 +326,14 @@ export default function App() {
   };
 
   const resetTimer = () => {
+    if (!endTime) setEndTime(new Date());
     // Always clear interval
     BackgroundTimer.clearInterval(intervalRef.current);
     intervalRef.current = null;
     ForegroundModule.stopService();
+    runDistance.current = 0;
+    walkDistance.current = 0;
+    previousLocation.current = null;
     // If timer is stopped mid-session (not at the end), show summary screen instead of resetting everything
     if (elapsedTime > 0 && !sessionComplete) {
       setIsRunning(false);
@@ -347,80 +393,119 @@ export default function App() {
       <>
         {statusBar}
         <View style={[styles.container, { backgroundColor: theme.mainBG, justifyContent: 'center' }]}>
-        <Text
-          style={[
-            styles.phaseText,
-            {
+          <Text
+            style={[
+              styles.phaseText,
+              {
+                fontFamily: theme.text,
+                color: theme.textColor,
+                textAlign: "center",
+                marginBottom: 20,
+                fontSize: 64,
+                letterSpacing: 2,
+              },
+            ]}
+          >
+            Session Complete
+          </Text>
+          <ScrollView
+            style={{
+              maxHeight: '60%',
+              width: '90%',
+              alignSelf: 'center',
+              borderRadius: 20,
+              backgroundColor: theme.inputContainerBG,
+              shadowColor: "#000",
+              shadowOpacity: 0.15,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 5 },
+              elevation: 6,
+              marginVertical: 10,
+            }}
+            contentContainerStyle={{ padding: 30, gap: 20 }}
+          >
+            <Text style={[styles.timeText, {
               fontFamily: theme.text,
-              color: theme.textColor,
+              color: theme.labelText,
               textAlign: "center",
-              marginBottom: 20,
-              fontSize: 64,
-              letterSpacing: 2,
-            },
-          ]}
-        >
-          Session Complete
-        </Text>
-        <View
-          style={{
-            backgroundColor: theme.inputContainerBG,
-            padding: 30,
-            borderRadius: 20,
-            marginVertical: 10,
-            width: "90%",
-            alignSelf: "center",
-            shadowColor: "#000",
-            shadowOpacity: 0.15,
-            shadowRadius: 10,
-            shadowOffset: { width: 0, height: 5 },
-            elevation: 6,
-            gap: 20,
-          }}
-        >
-          <Text style={[styles.timeText, {
-            fontFamily: theme.text,
-            color: theme.labelText,
-            textAlign: "center",
-            fontSize: 48,
-          }]}>
-            Total Time {'\n'+Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}
-          </Text>
-          <Text style={[styles.timeText, {
-            fontFamily: theme.text,
-            color: theme.labelText,
-            textAlign: "center",
-            fontSize: 48,
-          }]}>
-            Run Time {'\n'+Math.floor(runElapsedTime / 60)}:{(runElapsedTime % 60).toString().padStart(2, '0')}
-          </Text>
-          <Text style={[styles.timeText, {
-            fontFamily: theme.text,
-            color: theme.labelText,
-            textAlign: "center",
-            fontSize: 48,
-          }]}>
-            Walk Time {'\n'+Math.floor(walkElapsedTime / 60)}:{(walkElapsedTime % 60).toString().padStart(2, '0')}
-          </Text>
+              fontSize: 48,
+            }]}>
+              Total Time {'\n'+Math.floor(elapsedTime / 60)}:{(elapsedTime % 60).toString().padStart(2, '0')}
+            </Text>
+            <Text style={[styles.timeText, {
+              fontFamily: theme.text,
+              color: theme.labelText,
+              textAlign: "center",
+              fontSize: 48,
+            }]}>
+              Run Time {'\n'+Math.floor(runElapsedTime / 60)}:{(runElapsedTime % 60).toString().padStart(2, '0')}
+            </Text>
+            <Text style={[styles.timeText, {
+              fontFamily: theme.text,
+              color: theme.labelText,
+              textAlign: "center",
+              fontSize: 48,
+            }]}>
+              Walk Time {'\n'+Math.floor(walkElapsedTime / 60)}:{(walkElapsedTime % 60).toString().padStart(2, '0')}
+            </Text>
+            <Text style={[styles.timeText, {
+              fontFamily: theme.text,
+              color: theme.labelText,
+              textAlign: "center",
+              fontSize: 48,
+            }]}>
+              Run Distance {'\n'+(runDistance.current * 0.000621371).toFixed(2)} mi
+            </Text>
+            <Text style={[styles.timeText, {
+              fontFamily: theme.text,
+              color: theme.labelText,
+              textAlign: "center",
+              fontSize: 48,
+            }]}>
+              Walk Distance {'\n'+(walkDistance.current * 0.000621371).toFixed(2)} mi
+            </Text>
+            {(startTime || endTime) && (
+              <Text style={[styles.timeText, {
+                fontFamily: theme.text,
+                color: theme.labelText,
+                textAlign: "center",
+                fontSize: 48,
+              }]}>
+                Time: {'\n'}
+                {startTime ? startTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) : '—'}
+                {' - '}
+                {endTime ? endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) : '—'}
+              </Text>
+            )}
+            {/* {endTime && (
+              <Text style={[styles.timeText, {
+                fontFamily: theme.text,
+                color: theme.labelText,
+                textAlign: "center",
+                fontSize: 48,
+              }]}>
+                Ended: {'\n'+endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}
+              </Text>
+            )} */}
+          </ScrollView>
+          <TouchableOpacity
+            style={[
+              styles.startButton,
+              {
+                backgroundColor: theme.stopButtonBG,
+                shadowColor: theme.buttonShadowColor,
+                shadowOpacity: theme.buttonShadowOpacity,
+                shadowRadius: theme.buttonShadowRadius,
+                shadowOffset: theme.buttonShadowOffset,
+                elevation: theme.buttonElevation,
+                marginTop: 60,
+              },
+            ]}
+            onPress={resetTimer}
+          >
+            <Text style={{ fontSize: 36, fontFamily: theme.text, color: theme.iconStop }}>Done</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity
-          style={[
-            styles.startButton,
-            {
-              backgroundColor: theme.stopButtonBG,
-              shadowColor: theme.buttonShadowColor,
-              shadowOpacity: theme.buttonShadowOpacity,
-              shadowRadius: theme.buttonShadowRadius,
-              shadowOffset: theme.buttonShadowOffset,
-              elevation: theme.buttonElevation,
-              marginTop: 60,
-            },
-          ]}
-          onPress={resetTimer}
-        >
-          <Text style={{ fontSize: 36, fontFamily: theme.text, color: theme.iconStop }}>Done</Text>
-        </TouchableOpacity>
-      </View>
       </>
     );
   }

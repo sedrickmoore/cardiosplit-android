@@ -12,20 +12,24 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.1.2",
     "expo": "~53.0.9",
+    "expo-audio": "~0.4.5",
     "expo-av": "~15.1.4",
     "expo-font": "~13.3.1",
     "expo-keep-awake": "~14.1.4",
+    "expo-location": "~18.1.5",
     "expo-sqlite": "~15.2.10",
     "expo-status-bar": "~2.2.3",
+    "geolib": "^3.3.4",
     "react": "19.0.0",
     "react-native": "^0.79.2",
     "react-native-background-timer": "^2.4.1",
     "react-native-paper": "^5.14.4",
-    "expo-audio": "~0.4.5"
+    "expo-task-manager": "~13.1.5",
+    "expo-sensors": "~14.1.4"
   },
   "devDependencies": {
-    "@react-native-community/cli": "latest",
-    "@babel/core": "^7.20.0"
+    "@babel/core": "^7.20.0",
+    "@react-native-community/cli": "latest"
   },
   "private": true
 }
