@@ -61,6 +61,8 @@ export default function App() {
   const walkDistance = useRef(0);
   const previousLocation = useRef(null);
   const [stepCount, setStepCount] = useState(0);
+  const [baseStepCount, setBaseStepCount] = useState(null);
+  const baseStepCountRef = useRef(null);
   const stepListener = useRef(null);
   // Load stored settings for theme and timer values
   useEffect(() => {
@@ -212,7 +214,7 @@ export default function App() {
     }, 3000);
   };
 
-  const startTimer = () => {
+  const startTimer = async () => {
     if (isRunning || isPrepping) return; // prevent duplicate timers
 
     // Input validation
@@ -222,7 +224,20 @@ export default function App() {
     }
 
     saveTimeSettings();
-    preStartCountdown();
+
+    // Request permissions *before* countdown
+    const { status } = await Location.requestForegroundPermissionsAsync();
+    if (status !== "granted") {
+      alert("Permission to access location was denied");
+      return;
+    }
+    const hasPermission = await requestActivityRecognitionPermission();
+    if (!hasPermission) {
+      alert("Permission to access physical activity was denied");
+      return;
+    }
+
+    preStartCountdown(); // start countdown *after* permissions are granted
     setShowMenu(false);
   };
 
@@ -250,17 +265,7 @@ export default function App() {
   };
 
   const startMainTimer = async () => {
-    // Request location permissions first
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== "granted") {
-      alert("Permission to access location was denied");
-      return;
-    }
-    const hasPermission = await requestActivityRecognitionPermission();
-    if (!hasPermission) {
-      alert("Permission to access physical activity was denied");
-      return;
-    }
+    // Permissions are now handled in startTimer
 
     const intervals = buildIntervals(
       Number(totalTime),
@@ -272,15 +277,24 @@ export default function App() {
     const startTimestamp = new Date();
     setStartTime(startTimestamp);
     setIsRunning(true);
-    
+
+    // Reset step counting baseline at session start
+    setBaseStepCount(null);
+    baseStepCountRef.current = null;
+    setStepCount(0);
+
     StepCounterModule.startStepTracking();
     stepListener.current = DeviceEventEmitter.addListener(
       "StepCounterUpdate",
       (count) => {
-        if (typeof count === "number") {
-          setStepCount(Math.round(count));
-        } else if (count && typeof count.value === "number") {
-          setStepCount(Math.round(count.value));
+        const stepVal = typeof count === "number" ? count : count?.value;
+        if (typeof stepVal === "number") {
+          if (baseStepCountRef.current === null) {
+            baseStepCountRef.current = stepVal;
+            setBaseStepCount(stepVal);
+          } else {
+            setStepCount(Math.max(0, Math.round(stepVal - baseStepCountRef.current)));
+          }
         } else {
           console.warn("Unexpected step count payload:", count);
         }
@@ -378,7 +392,14 @@ export default function App() {
   };
 
   const resetTimer = () => {
-    if (!endTime) setEndTime(new Date());
+    setEndTime(new Date());
+
+    StepCounterModule.stopStepTracking();
+    if (stepListener.current) {
+      stepListener.current.remove();
+      stepListener.current = null;
+    }
+
     // Always clear interval
     BackgroundTimer.clearInterval(intervalRef.current);
     intervalRef.current = null;
@@ -394,11 +415,6 @@ export default function App() {
       setCurrentInterval(null);
       setSessionComplete(true);
       return;
-    }
-    StepCounterModule.stopStepTracking();
-    if (stepListener.current) {
-      stepListener.current.remove();
-      stepListener.current = null;
     }
     countdownTimersRef.current.forEach(clearTimeout);
     // Ensure any playing sound is unloaded (using expo-audio)
@@ -494,7 +510,8 @@ export default function App() {
                 },
               ]}
             >
-              Total Time {"\n" + Math.floor(elapsedTime / 60)}:
+              <Text style={{ textDecorationLine: 'underline' }}>Total Time</Text>
+              {"\n" + Math.floor(elapsedTime / 60)}:
               {(elapsedTime % 60).toString().padStart(2, "0")}
             </Text>
             <Text
@@ -508,7 +525,8 @@ export default function App() {
                 },
               ]}
             >
-              Run Time {"\n" + Math.floor(runElapsedTime / 60)}:
+              <Text style={{ textDecorationLine: 'underline' }}>Run Time</Text>
+              {"\n" + Math.floor(runElapsedTime / 60)}:
               {(runElapsedTime % 60).toString().padStart(2, "0")}
             </Text>
             <Text
@@ -522,7 +540,8 @@ export default function App() {
                 },
               ]}
             >
-              Walk Time {"\n" + Math.floor(walkElapsedTime / 60)}:
+              <Text style={{ textDecorationLine: 'underline' }}>Walk Time</Text>
+              {"\n" + Math.floor(walkElapsedTime / 60)}:
               {(walkElapsedTime % 60).toString().padStart(2, "0")}
             </Text>
             <Text
@@ -536,7 +555,7 @@ export default function App() {
                 },
               ]}
             >
-              Run Distance{" "}
+              <Text style={{ textDecorationLine: 'underline' }}>Run Distance</Text>
               {"\n" + (runDistance.current * 0.000621371).toFixed(2)} mi
             </Text>
             <Text
@@ -550,8 +569,22 @@ export default function App() {
                 },
               ]}
             >
-              Walk Distance{" "}
+              <Text style={{ textDecorationLine: 'underline' }}>Walk Distance</Text>
               {"\n" + (walkDistance.current * 0.000621371).toFixed(2)} mi
+            </Text>
+            <Text
+              style={[
+                styles.timeText,
+                {
+                  fontFamily: theme.text,
+                  color: theme.labelText,
+                  textAlign: "center",
+                  fontSize: 48,
+                },
+              ]}
+            >
+              <Text style={{ textDecorationLine: 'underline' }}>Steps</Text>
+              {"\n" + stepCount}
             </Text>
             {(startTime || endTime) && (
               <Text
@@ -565,7 +598,8 @@ export default function App() {
                   },
                 ]}
               >
-                Time: {"\n"}
+                <Text style={{ textDecorationLine: 'underline' }}>Time</Text>
+                {"\n"}
                 {startTime
                   ? startTime.toLocaleTimeString([], {
                       hour: "numeric",
@@ -987,14 +1021,6 @@ export default function App() {
               {(runElapsedTime % 60).toString().padStart(2, "0")} /{" "}
               {Math.floor(elapsedTime / 60)}:
               {(elapsedTime % 60).toString().padStart(2, "0")}
-            </Text>
-            <Text
-              style={[
-                styles.elapsedText,
-                { color: theme.textColor, fontFamily: theme.text },
-              ]}
-            >
-              {stepCount}
             </Text>
           </View>
         )}
