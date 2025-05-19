@@ -18,9 +18,6 @@ public class ForegroundService extends Service {
         super.onCreate();
         createNotificationChannel();
 
-        Toast.makeText(this, "Foreground service started", Toast.LENGTH_SHORT).show();
-        android.util.Log.d("ForegroundService", "Foreground service started");
-
         Notification notification = new NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("CardioSplit Timer")
             .setContentText("Your workout is running...")

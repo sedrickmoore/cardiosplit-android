@@ -88,7 +88,6 @@ export default function App() {
 
   // Load transition sound
   const soundRef = useRef(null);
-  const silentAudio = useRef(null);
 
   const beep1 = require("./assets/beep1.mp3"); // switch to run
   const beep2 = require("./assets/beep2.mp3"); // countdown from walk
@@ -125,32 +124,20 @@ export default function App() {
   }, [currentInterval]);
 
   const playSound = async (soundFile) => {
-    if (soundRef.current) {
-      await soundRef.current.unloadAsync();
-      soundRef.current = null;
-    }
-    const { sound } = await Audio.Sound.createAsync(soundFile);
-    soundRef.current = sound;
-    await sound.playAsync();
-  };
-
-  const startSilentAudio = async () => {
-    const { sound } = await Audio.Sound.createAsync(
-      require("./assets/silence.mp3"),
-      {
-        isLooping: true,
+    try {
+      const { sound } = await Audio.Sound.createAsync(soundFile, {
         shouldPlay: true,
-        volume: 0.0,
-      }
-    );
-    silentAudio.current = sound;
-    await sound.playAsync();
-  };
+        staysActiveInBackground: true,
+        isLooping: false,
+      });
 
-  const stopSilentAudio = async () => {
-    if (silentAudio.current) {
-      await silentAudio.current.unloadAsync();
-      silentAudio.current = null;
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
+    } catch (error) {
+      console.warn("Playback error:", error);
     }
   };
 
@@ -204,7 +191,6 @@ export default function App() {
 
     setTimeout(() => {
       setIsPrepping(false);
-      startSilentAudio();
       startMainTimer();
       playSound(beep1);
     }, 3000);
@@ -238,7 +224,6 @@ export default function App() {
       if (currentIntervalIndex.current >= intervals.length) {
         BackgroundTimer.clearInterval(intervalRef.current); // FIXED
         intervalRef.current = null;
-        stopSilentAudio();
         ForegroundModule.stopService();
         setIsRunning(false);
         setIsPaused(false);
@@ -299,10 +284,9 @@ export default function App() {
   };
 
   const resetTimer = () => {
-    // Always clear interval and stop silent audio immediately
+    // Always clear interval
     BackgroundTimer.clearInterval(intervalRef.current);
     intervalRef.current = null;
-    stopSilentAudio();
     ForegroundModule.stopService();
     // If timer is stopped mid-session (not at the end), show summary screen instead of resetting everything
     if (elapsedTime > 0 && !sessionComplete) {
@@ -314,7 +298,7 @@ export default function App() {
       return;
     }
     countdownTimersRef.current.forEach(clearTimeout);
-    // Ensure any playing sound is unloaded
+    // Ensure any playing sound is unloaded (using expo-audio)
     (() => {
       if (soundRef.current) {
         soundRef.current.unloadAsync().then(() => {
