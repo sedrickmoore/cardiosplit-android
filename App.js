@@ -54,6 +54,8 @@ export default function App() {
   const intervalRef = useRef(null);
   const countdownTimersRef = useRef([]);
   const currentIntervalIndex = useRef(0);
+  // Track total session duration in seconds for halfway beep
+  const totalSessionSecondsRef = useRef(0);
 
   const isPausedRef = useRef(isPaused);
   const currentIntervalRef = useRef(null);
@@ -109,8 +111,9 @@ export default function App() {
 
   const beep1 = require("./assets/beep1.mp3"); // switch to run
   const beep2 = require("./assets/beep2.mp3"); // countdown from walk
+  const beep1_h = require("./assets/beep1-h.mp3"); // switch to run
+  const beep2_h = require("./assets/beep2-h.mp3"); // countdown from walk
   const beep3 = require("./assets/beep3.mp3"); // switch to walk
-  const beep4 = require("./assets/beep4.mp3"); // countdown from run
 
   const [fontsLoaded] = Font.useFonts({
     Rajdhani: require("./assets/fonts/Rajdhani-Regular.ttf"),
@@ -191,18 +194,18 @@ export default function App() {
 
   const preStartCountdown = () => {
     setIsPrepping(true);
-    setCurrentInterval({ type: "Ready", duration: 1 });
+    setCurrentInterval({ type: "3", duration: 1 });
     setSecondsLeft(3);
     playSound(beep2);
 
     setTimeout(() => {
-      setCurrentInterval({ type: "Set", duration: 1 });
+      setCurrentInterval({ type: "2", duration: 1 });
       setSecondsLeft(2);
       playSound(beep2);
     }, 1000);
 
     setTimeout(() => {
-      setCurrentInterval({ type: "Go", duration: 1 });
+      setCurrentInterval({ type: "1", duration: 1 });
       setSecondsLeft(1);
       playSound(beep2);
     }, 2000);
@@ -273,6 +276,12 @@ export default function App() {
       Number(walkTime)
     );
     currentIntervalIndex.current = 0;
+    // Calculate and store total session duration in seconds
+    const totalSessionDuration = intervals.reduce(
+      (sum, interval) => sum + interval.duration,
+      0
+    );
+    totalSessionSecondsRef.current = totalSessionDuration;
     // Save session start time
     const startTimestamp = new Date();
     setStartTime(startTimestamp);
@@ -293,7 +302,9 @@ export default function App() {
             baseStepCountRef.current = stepVal;
             setBaseStepCount(stepVal);
           } else {
-            setStepCount(Math.max(0, Math.round(stepVal - baseStepCountRef.current)));
+            setStepCount(
+              Math.max(0, Math.round(stepVal - baseStepCountRef.current))
+            );
           }
         } else {
           console.warn("Unexpected step count payload:", count);
@@ -366,25 +377,45 @@ export default function App() {
         const newTime = prev - 1;
 
         if (newTime <= 0) {
-          const nextType = intervals[currentIntervalIndex.current + 1]?.type;
-          if (nextType === "Run") {
-            playSound(beep1);
-          } else if (nextType === "Walk") {
+          // If we are about to finish the last interval, play end beep before setting session complete
+          if (currentIntervalIndex.current + 1 >= intervals.length) {
             playSound(beep3);
+          } else {
+            const nextType = intervals[currentIntervalIndex.current + 1]?.type;
+            if (nextType === "Run") {
+              playSound(beep1);
+            } else if (nextType === "Walk") {
+              playSound(beep2);
+            }
           }
           currentIntervalIndex.current++;
           runInterval();
         } else {
           if (newTime === 3 || newTime === 2 || newTime === 1) {
             const countdownBeep =
-              currentIntervalRef.current?.type === "Run" ? beep4 : beep2;
+              currentIntervalRef.current?.type === "Run" ? beep1 : beep2;
             playSound(countdownBeep);
           }
         }
 
         return newTime;
       });
-      setElapsedTime((et) => et + 1);
+      setElapsedTime((et) => {
+        const updatedTime = et + 1;
+
+        // 🔔 Play halfway beep once
+        if (updatedTime === Math.floor(totalSessionSecondsRef.current / 2)) {
+          // Play beep1_h if the next interval is Run, beep2_h if Walk
+          const nextType = intervals[currentIntervalIndex.current]?.type;
+          if (nextType === "Run") {
+            playSound(beep1_h);
+          } else if (nextType === "Walk") {
+            playSound(beep2_h);
+          }
+        }
+
+        return updatedTime;
+      });
       if (currentIntervalRef.current?.type === "Run") {
         setRunElapsedTime((rt) => rt + 1);
       }
@@ -510,7 +541,9 @@ export default function App() {
                 },
               ]}
             >
-              <Text style={{ textDecorationLine: 'underline' }}>Total Time</Text>
+              <Text style={{ textDecorationLine: "underline" }}>
+                Total Time
+              </Text>
               {"\n" + Math.floor(elapsedTime / 60)}:
               {(elapsedTime % 60).toString().padStart(2, "0")}
             </Text>
@@ -525,7 +558,7 @@ export default function App() {
                 },
               ]}
             >
-              <Text style={{ textDecorationLine: 'underline' }}>Run Time</Text>
+              <Text style={{ textDecorationLine: "underline" }}>Run Time</Text>
               {"\n" + Math.floor(runElapsedTime / 60)}:
               {(runElapsedTime % 60).toString().padStart(2, "0")}
             </Text>
@@ -540,7 +573,7 @@ export default function App() {
                 },
               ]}
             >
-              <Text style={{ textDecorationLine: 'underline' }}>Walk Time</Text>
+              <Text style={{ textDecorationLine: "underline" }}>Walk Time</Text>
               {"\n" + Math.floor(walkElapsedTime / 60)}:
               {(walkElapsedTime % 60).toString().padStart(2, "0")}
             </Text>
@@ -555,7 +588,9 @@ export default function App() {
                 },
               ]}
             >
-              <Text style={{ textDecorationLine: 'underline' }}>Run Distance</Text>
+              <Text style={{ textDecorationLine: "underline" }}>
+                Run Distance
+              </Text>
               {"\n" + (runDistance.current * 0.000621371).toFixed(2)} mi
             </Text>
             <Text
@@ -569,7 +604,9 @@ export default function App() {
                 },
               ]}
             >
-              <Text style={{ textDecorationLine: 'underline' }}>Walk Distance</Text>
+              <Text style={{ textDecorationLine: "underline" }}>
+                Walk Distance
+              </Text>
               {"\n" + (walkDistance.current * 0.000621371).toFixed(2)} mi
             </Text>
             <Text
@@ -583,7 +620,7 @@ export default function App() {
                 },
               ]}
             >
-              <Text style={{ textDecorationLine: 'underline' }}>Steps</Text>
+              <Text style={{ textDecorationLine: "underline" }}>Steps</Text>
               {"\n" + stepCount}
             </Text>
             {(startTime || endTime) && (
@@ -598,7 +635,7 @@ export default function App() {
                   },
                 ]}
               >
-                <Text style={{ textDecorationLine: 'underline' }}>Time</Text>
+                <Text style={{ textDecorationLine: "underline" }}>Time</Text>
                 {"\n"}
                 {startTime
                   ? startTime.toLocaleTimeString([], {
