@@ -1,64 +1,64 @@
-# CardioSplit Timer
+# CardioSplit
 
-**CardioSplit Timer** is a fully customizable interval timer for alternating between running and walking. Built in React Native with Expo, it includes visual countdowns, audio cues, vibration feedback, theme selection, persistent settings, and a lock system to prevent accidental taps.
+**CardioSplit** is a fully customizable run/walk interval timer built with React Native (ejected for Android). It provides real-time visual, audio, and vibration feedback to support cardio training.
 
 ---
 
 ## Features
 
-* **Custom Intervals:** Set total workout time, run time, and walk time.
-* **Pre-Start Countdown:** A "Ready / Set / Go" intro sequence with sound cues.
-* **Live Timer:** Clearly displays current interval type and countdown.
-* **Elapsed Time Tracking:** Shows both total elapsed time and run-only time.
-* **Theme Customization:** Choose from multiple color themes (light, dark, and high-visibility).
-* **Persistent Settings:** Remembers your last-used theme and interval settings.
-* **Audio Feedback:** Beeps for interval switches and countdown warnings.
-* **Vibration Cues:** Custom buzz patterns for run and walk transitions.
-* **Accidental Tap Protection:** Lock/Unlock system prevents accidental presses.
-* **Responsive Layout:** Smooth transitions, shadows, and color-coded backgrounds for each phase (for main theme only).
+- **Custom Intervals** — Set total workout duration, run length, and walk break times.
+- **"Ready / Set / Go" Countdown** — Audio cues and onscreen prompts prepare you to begin.
+- **Live Timer** — Displays current interval type, countdown, and total elapsed time.
+- **Run Time Tracking** — Separate tracking of total run time during a session.
+- **Theme Selection** — Choose between light, dark, and high-visibility themes.
+- **Persistent Settings** — Remembers your last-used intervals and theme on restart.
+- **Audio & Vibration Feedback** — Beeps and buzz patterns distinguish each phase.
+- **Lock System** — Prevents accidental taps mid-run by toggling UI buttons.
+- **Responsive UI** — Clean layout with smooth transitions and color-coded phases.
 
 ---
 
 ## Installation
 
+Clone the repository and install dependencies:
+
 ```bash
-git clone https://github.com/yourusername/cardio-split-timer.git
-cd cardio-split-timer
+git clone https://github.com/sedrickmoore/cardiosplit-android.git
+cd cardiosplit-android
 npm install
-expo start
 ```
 
-> Make sure to install these dependencies:
+---
+
+## Android Build
+
+This project is ejected from Expo and uses an Android native build.
+
+To build and install the APK locally:
 
 ```bash
-expo install expo-av expo-keep-awake expo-font
+npx react-native run-android
 ```
 
----
-
-## Configuration
-
-* **Audio Files:** Beeps for run/walk countdowns and switches are stored in `/assets`.
-* **Fonts:** Uses [Rajdhani](https://fonts.google.com/specimen/Rajdhani) for a bold timer look.
-* **Lock Button:** Long-press for 1 second to toggle visibility of Pause/Stop buttons.
+Make sure you have Android Studio and a virtual or physical device connected.
 
 ---
 
-## Build for Android
+## Configuration Notes
 
-For personal use:
-
-```bash
-eas build --platform android --profile preview
-```
-
-> To install on device, build an `.apk` instead of `.aab`
+- **Audio Files:** Located in `/assets`; used for countdowns and interval changes.
+- **Fonts:** Uses [Rajdhani](https://fonts.google.com/specimen/Rajdhani) for styling.
+- **Lock Feature:** Long press to toggle visibility of Pause and Stop buttons.
 
 ---
 
-## What's Next
+## Roadmap
 
-Additional features like Google Fit syncing, notification widgets, and background services will be explored in a future native (ejected) version of this app.
+Planned additions for future versions include:
+
+- Google Fit integration  
+- Progress history tracking  
+- Notification-based reminders and quick actions  
 
 ---
 

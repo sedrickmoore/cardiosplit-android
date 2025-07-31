@@ -239,7 +239,7 @@ export default function App() {
       alert("Permission to access physical activity was denied");
       return;
     }
-
+    console.log("→ Permissions granted, preStartCountdown starting");
     preStartCountdown(); // start countdown *after* permissions are granted
     setShowMenu(false);
   };
@@ -270,6 +270,7 @@ export default function App() {
   const startMainTimer = async () => {
     // Permissions are now handled in startTimer
 
+    console.log("→ Main timer started");
     const intervals = buildIntervals(
       Number(totalTime),
       Number(runTime),
@@ -293,25 +294,11 @@ export default function App() {
     setStepCount(0);
 
     StepCounterModule.startStepTracking();
-    stepListener.current = DeviceEventEmitter.addListener(
-      "StepCounterUpdate",
-      (count) => {
-        const stepVal = typeof count === "number" ? count : count?.value;
-        if (typeof stepVal === "number") {
-          if (baseStepCountRef.current === null) {
-            baseStepCountRef.current = stepVal;
-            setBaseStepCount(stepVal);
-          } else {
-            setStepCount(
-              Math.max(0, Math.round(stepVal - baseStepCountRef.current))
-            );
-          }
-        } else {
-          console.warn("Unexpected step count payload:", count);
-        }
-      }
-    );
-    ForegroundModule.startService();
+    
+    setTimeout(() => {
+      console.log("→ Starting Foreground service");
+      ForegroundModule.startService();
+    }, 100);
 
     Location.watchPositionAsync(
       {
@@ -336,6 +323,7 @@ export default function App() {
       }
     );
 
+    
     const runInterval = () => {
       if (currentIntervalIndex.current >= intervals.length) {
         // Save end time when session completes
@@ -369,6 +357,24 @@ export default function App() {
     };
 
     runInterval();
+    stepListener.current = DeviceEventEmitter.addListener(
+      "StepCounterUpdate",
+      (count) => {
+        const stepVal = typeof count === "number" ? count : count?.value;
+        if (typeof stepVal === "number") {
+          if (baseStepCountRef.current === null) {
+            baseStepCountRef.current = stepVal;
+            setBaseStepCount(stepVal);
+          } else {
+            setStepCount(
+              Math.max(0, Math.round(stepVal - baseStepCountRef.current))
+            );
+          }
+        } else {
+          console.warn("Unexpected step count payload:", count);
+        }
+      }
+    );
 
     intervalRef.current = BackgroundTimer.setInterval(() => {
       if (isPausedRef.current || sessionComplete) return;
